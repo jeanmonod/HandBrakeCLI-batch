@@ -1,25 +1,82 @@
 #!/usr/bin/env php
 <?php
 require __DIR__.'/vendor/autoload.php';
+
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Finder\Finder;
+use Symfony\Component\Process\Process;
+
 
 class CompressCommand extends Command {
+
     protected function configure() {
         $this
-           ->setName('compress')
-           ->setDescription('Allow to compress a serie of video')
+            ->setName('compress')
+            ->setDescription('Allow to compress a folder of video')
+            ->addArgument('source', \Symfony\Component\Console\Input\InputArgument::REQUIRED, 'Source folder')
+            ->addArgument('destination', \Symfony\Component\Console\Input\InputArgument::REQUIRED, 'Destination folder')
         ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output) {
+        $source = $input->getArgument('source');
+        $destFolder = $input->getArgument('destination');
         $output->writeln([
-            'Video compression',
-            '=================',
+            "Video compression from $source to $destFolder",
             '',
         ]);
+
+        $files = [];
+        $finder = new Finder();
+        $finder->files()->in($source);
+        /** @var SplFileInfo $file */
+        foreach ($finder as $file) {
+            $data = [];
+            $data['source'] = $path = $file->getRealPath();
+            $data['size'] = filesize($path);
+            $data['time'] = filemtime($path);
+            $data['name'] = date('Y-m-d H.i.s', $data['time']) . '.mp4';
+            $data['destination'] = $destFolder.DIRECTORY_SEPARATOR.$data['name'];
+            $files[] = $data;
+        }
+
+        $table = new \Symfony\Component\Console\Helper\Table($output);
+        $table->setHeaders(array('Source file', 'Size', 'Destination', 'Size'));
+        $table->setRows(array_map(function($row) use ($source){
+            return [
+                str_replace($source, '', $row['source']),
+                round($row['size']/1024/1024, 2).' Mo',
+                $row['name'],
+                '???'
+            ];
+        }, $files));
+        $table->render();
+
+        $helper = $this->getHelper('question');
+        $question = new \Symfony\Component\Console\Question\ConfirmationQuestion('Continue with this action? (y/n) ', false);
+        if (!$helper->ask($input, $output, $question)) {
+            return;
+        }
+
+        foreach($files as $pos => $file) {
+            $cmd = "HandBrakeCLI -i \"{$file['source']}\" -o \"{$file['destination']}\" -Z \"Very Fast 720p30\"";
+            $output->writeln("Command: <comment>$cmd</comment>");
+            $process = new Process($cmd);
+            try {
+                $process->mustRun();
+                if ($process->getExitCode() == 0){
+                    touch($file['destination'], $file['time']);
+                    $newSize = filesize($file['destination']);
+                    $saved = $file['size'] - $newSize;
+                    $output->writeln("<info>Encoding success</info> ".round($saved/1024/1024, 2).' Mo saved');
+                }
+            } catch (Exception $e) {
+                echo $e->getMessage();
+            }
+        }
     }
 
 }

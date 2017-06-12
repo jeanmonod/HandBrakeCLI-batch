@@ -3,7 +3,8 @@
     "description": "Simple script to help batch video compression",
     "require": {
         "symfony/console": "^3.3",
-        "symfony/process": "^3.3"
+        "symfony/process": "^3.3",
+        "symfony/finder": "^3.3"
     },
     "authors": [
         {
