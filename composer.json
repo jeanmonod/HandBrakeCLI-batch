@@ -1,0 +1,14 @@
+{
+    "name": "dj/video-compression",
+    "description": "Simple script to help batch video compression",
+    "require": {
+        "symfony/console": "^3.3",
+        "symfony/process": "^3.3"
+    },
+    "authors": [
+        {
+            "name": "David Jeanmonod",
+            "email": "david.jeanmonod@gmail.com"
+        }
+    ]
+}
