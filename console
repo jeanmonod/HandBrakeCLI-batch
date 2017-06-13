@@ -47,18 +47,41 @@ class CompressCommand extends Command {
             $files[] = $data;
         }
 
+        // Collision detection
+        $collision = false;
+        $counts = array_count_values(array_column($files, 'destination'));
+        foreach($files as $pos => $file) {
+            $message = 'no';
+            if (file_exists($file['destination'])){
+                $message = '<error>Destination file already exist</error>';
+                $collision = true;
+            }
+            if (($count = $counts[$file['destination']]) > 1) {
+                $message = "<error>Same destination for $count video</error>";
+                $collision = true;
+            }
+            $files[$pos]['collision'] = $message;
+        }
+
+        // Recap
         $table = new \Symfony\Component\Console\Helper\Table($output);
-        $table->setHeaders(array('Source file', 'Size', 'Destination', 'Size'));
-        $table->setRows(array_map(function($row) use ($source){
+        $table->setHeaders(array('Source file', 'Size', 'Destination', 'Collision'));
+        $table->setRows(array_map(function($row) use ($source, $formatter){
             return [
                 str_replace($source, '', $row['source']),
-                round($row['size']/1024/1024, 2).' Mo',
+                $this->toMo($row['size']),
                 $row['name'],
-                '???'
+                $row['collision']
             ];
         }, $files));
         $table->render();
 
+        // Fail due to collision
+        if ($collision) {
+            throw new RuntimeException("Collision expected, please fix destination before running the compression");
+        }
+
+        // Confirmation
         $helper = $this->getHelper('question');
         $question = new \Symfony\Component\Console\Question\ConfirmationQuestion('Continue with this action? (y/n) ', false);
         if (!$helper->ask($input, $output, $question)) {
