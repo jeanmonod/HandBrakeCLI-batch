@@ -141,7 +141,7 @@ class CompressCommand extends Command {
 }
 
 $application = new Application();
-$application->setName('VIDEO COMPRESSION');
-$application->setVersion('0.0.1');
+$application->setName('HandBrakeCLI-batch');
+$application->setVersion('0.0.2');
 $application->add(new CompressCommand());
 $application->run();
