@@ -8,6 +8,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
 
@@ -34,6 +35,7 @@ class CompressCommand extends Command {
     protected function execute(InputInterface $input, OutputInterface $output) {
 
         $formatter = $this->getHelper('formatter');
+        $questioner = $this->getHelper('question');
         $autoFix = $input->getOption('auto-increment');
 
         // Title
@@ -42,6 +44,18 @@ class CompressCommand extends Command {
         $output->writeln($formatter->formatBlock(
             "Video compression from $source to $destFolder", 'question', true
         ));
+
+        // Destination creation if missing
+        if (!file_exists($destFolder)){
+            $question = new ConfirmationQuestion(
+                "<comment>Destination [$destFolder] doesn't exist. Do you want to create it?</comment> (y/n) "
+            , false);
+            if (!$questioner->ask($input, $output, $question)) {
+                $output->writeln('<error>Cancelled</error>');
+                return;
+            }
+            mkdir($destFolder, 0777, true);
+        }
 
         // Collect files
         $files = [];
@@ -100,9 +114,8 @@ class CompressCommand extends Command {
         }
 
         // Confirmation
-        $helper = $this->getHelper('question');
-        $question = new \Symfony\Component\Console\Question\ConfirmationQuestion('Continue with this action? (y/n) ', false);
-        if (!$helper->ask($input, $output, $question)) {
+        $question = new ConfirmationQuestion('Continue with this action? (y/n) ', false);
+        if (!$questioner->ask($input, $output, $question)) {
             return;
         }
 
