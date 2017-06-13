@@ -6,6 +6,8 @@ use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
 
@@ -16,9 +18,10 @@ class CompressCommand extends Command {
         $this
             ->setName('compress')
             ->setDescription('Allow to compress a folder of video')
-            ->addArgument('source', \Symfony\Component\Console\Input\InputArgument::REQUIRED, 'Source folder')
-            ->addArgument('destination', \Symfony\Component\Console\Input\InputArgument::REQUIRED, 'Destination folder')
-            ->addOption('auto-increment', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Automatically fix the destination timestamp in case of collision');
+            ->addArgument('source', InputArgument::REQUIRED, 'Source folder')
+            ->addArgument('destination', InputArgument::REQUIRED, 'Destination folder')
+            ->addOption('auto-increment', null, InputOption::VALUE_NONE, 'Automatically fix the destination filename in case of collision')
+            ->addOption('preset', null, InputOption::VALUE_REQUIRED, 'HandBrake Preset to use', 'Very Fast 720p30')
         ;
     }
 
@@ -105,8 +108,9 @@ class CompressCommand extends Command {
 
         // Compression
         $totalSaved = 0;
+        $preset = $input->getOption("preset");
         foreach($files as $pos => $file) {
-            $cmd = "HandBrakeCLI -i \"{$file['source']}\" -o \"{$file['destination']}\" -Z \"Very Fast 720p30\"";
+            $cmd = "HandBrakeCLI -i \"{$file['source']}\" -o \"{$file['destination']}\" -Z \"\"";
             $output->writeln("Command: <comment>$cmd</comment>");
             $process = new Process($cmd);
             try {
