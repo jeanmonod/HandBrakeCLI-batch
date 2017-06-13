@@ -22,13 +22,17 @@ class CompressCommand extends Command {
     }
 
     protected function execute(InputInterface $input, OutputInterface $output) {
+
+        $formatter = $this->getHelper('formatter');
+
+        // Title
         $source = $input->getArgument('source');
         $destFolder = $input->getArgument('destination');
-        $output->writeln([
-            "Video compression from $source to $destFolder",
-            '',
-        ]);
+        $output->writeln($formatter->formatBlock(
+            "Video compression from $source to $destFolder", 'question', true
+        ));
 
+        // Collect files
         $files = [];
         $finder = new Finder();
         $finder->files()->in($source);
@@ -61,6 +65,8 @@ class CompressCommand extends Command {
             return;
         }
 
+        // Compression
+        $totalSaved = 0;
         foreach($files as $pos => $file) {
             $cmd = "HandBrakeCLI -i \"{$file['source']}\" -o \"{$file['destination']}\" -Z \"Very Fast 720p30\"";
             $output->writeln("Command: <comment>$cmd</comment>");
@@ -71,12 +77,23 @@ class CompressCommand extends Command {
                     touch($file['destination'], $file['time']);
                     $newSize = filesize($file['destination']);
                     $saved = $file['size'] - $newSize;
-                    $output->writeln("<info>Encoding success</info> ".round($saved/1024/1024, 2).' Mo saved');
+                    $output->writeln("<info>Encoding success</info> ".$this->toMo($saved).' saved');
+                    $totalSaved += $saved;
                 }
             } catch (Exception $e) {
                 echo $e->getMessage();
             }
         }
+
+        // Final recap
+        $output->writeln($formatter->formatBlock(
+            count($files) . " videos compressed, total saved: ".$this->toMo($totalSaved), 'info'
+        ));
+
+    }
+
+    protected function toMo($size){
+        return round($size/1024/1024, 2) .' Mo';
     }
 
 }
@@ -86,4 +103,3 @@ $application->setName('VIDEO COMPRESSION');
 $application->setVersion('0.0.1');
 $application->add(new CompressCommand());
 $application->run();
-
