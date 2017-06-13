@@ -18,12 +18,20 @@ class CompressCommand extends Command {
             ->setDescription('Allow to compress a folder of video')
             ->addArgument('source', \Symfony\Component\Console\Input\InputArgument::REQUIRED, 'Source folder')
             ->addArgument('destination', \Symfony\Component\Console\Input\InputArgument::REQUIRED, 'Destination folder')
+            ->addOption('auto-increment', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Automatically fix the destination timestamp in case of collision');
         ;
+    }
+
+    protected function getNameAndDestinationPath($time, $folder){
+        $name = date('Y-m-d H.i.s', $time) . '.mp4';
+        $path = $folder.DIRECTORY_SEPARATOR.$name;
+        return [$name, $path];
     }
 
     protected function execute(InputInterface $input, OutputInterface $output) {
 
         $formatter = $this->getHelper('formatter');
+        $autoFix = $input->getOption('auto-increment');
 
         // Title
         $source = $input->getArgument('source');
@@ -36,31 +44,35 @@ class CompressCommand extends Command {
         $files = [];
         $finder = new Finder();
         $finder->files()->in($source);
+        $destinationCounts = [];
         /** @var SplFileInfo $file */
         foreach ($finder as $file) {
             $data = [];
             $data['source'] = $path = $file->getRealPath();
             $data['size'] = filesize($path);
             $data['time'] = filemtime($path);
-            $data['name'] = date('Y-m-d H.i.s', $data['time']) . '.mp4';
-            $data['destination'] = $destFolder.DIRECTORY_SEPARATOR.$data['name'];
+            list($name, $path) = $this->getNameAndDestinationPath($data['time'], $destFolder);
+            $data['collision'] = 'no';
+            if (file_exists($path)){
+                $data['collision'] = '<error>Destination file already exist</error>';
+            }
+            if (array_key_exists($path, $destinationCounts)) {
+                $data['collision'] = "<error>Destination already used</error>";
+            }
+            if ($autoFix){
+                while(file_exists($path) || array_key_exists($path, $destinationCounts)){
+                    $data['time'] += 1;
+                    list($name, $path) = $this->getNameAndDestinationPath($data['time'], $destFolder);
+                    $data['collision'] = '<info>fixed</info>';
+                }
+            }
+            $destinationCounts[$path] = array_key_exists($path, $destinationCounts) ?
+                $destinationCounts[$path] + 1 :
+                0
+            ;
+            $data['name'] = $name;
+            $data['destination'] = $name;
             $files[] = $data;
-        }
-
-        // Collision detection
-        $collision = false;
-        $counts = array_count_values(array_column($files, 'destination'));
-        foreach($files as $pos => $file) {
-            $message = 'no';
-            if (file_exists($file['destination'])){
-                $message = '<error>Destination file already exist</error>';
-                $collision = true;
-            }
-            if (($count = $counts[$file['destination']]) > 1) {
-                $message = "<error>Same destination for $count video</error>";
-                $collision = true;
-            }
-            $files[$pos]['collision'] = $message;
         }
 
         // Recap
@@ -77,7 +89,10 @@ class CompressCommand extends Command {
         $table->render();
 
         // Fail due to collision
-        if ($collision) {
+        $collisonCounts = array_count_values(array_filter(array_column($files, 'collision'), function($value){
+            return ! in_array($value, ['no', '<info>fixed</info>']);
+        }));
+        if (count($collisonCounts) > 0) {
             throw new RuntimeException("Collision expected, please fix destination before running the compression");
         }
 
