@@ -57,7 +57,7 @@ class CompressCommand extends Command {
                 $data['collision'] = '<error>Destination file already exist</error>';
             }
             if (array_key_exists($path, $destinationCounts)) {
-                $data['collision'] = "<error>Destination already used</error>";
+                $data['collision'] = "<error>Duplicated filename</error>";
             }
             if ($autoFix){
                 while(file_exists($path) || array_key_exists($path, $destinationCounts)){
@@ -71,7 +71,7 @@ class CompressCommand extends Command {
                 0
             ;
             $data['name'] = $name;
-            $data['destination'] = $name;
+            $data['destination'] = $path;
             $files[] = $data;
         }
 
@@ -119,7 +119,7 @@ class CompressCommand extends Command {
                     $totalSaved += $saved;
                 }
             } catch (Exception $e) {
-                echo $e->getMessage();
+                $output->writeln("<error>{$e->getMessage()}</error>");
             }
         }
 
