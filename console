@@ -125,7 +125,7 @@ class CompressCommand extends Command {
         foreach($files as $pos => $file) {
             $cmd = "HandBrakeCLI -i \"{$file['source']}\" -o \"{$file['destination']}\" -Z \"$preset\"";
             $output->writeln("Command: <comment>$cmd</comment>");
-            $process = new Process($cmd);
+            $process = new Process($cmd, null, null, null, 300);
             try {
                 $process->mustRun();
                 if ($process->getExitCode() == 0){
